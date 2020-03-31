@@ -15,7 +15,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # file to cache Graph
-f = open("graph.txt", "r+")
+# graph_file = open("graph.txt", "w")
+# visited_file = open("visited.txt", "w")
 
 api_token = os.getenv("API_TOKEN")
 init_api_url = os.getenv("INIT_API_URL")
@@ -78,7 +79,7 @@ def traverseMaze(initialRoom):
     # We initiate a Stack for directions
     d = Stack()
     # We create a visited List
-    visited = list()
+    visited = {}
     # Push initial room to the stack
     s.push((None, None, initialRoom))
     # while the stack has something in it
@@ -96,8 +97,8 @@ def traverseMaze(initialRoom):
             # if the room that we pull from stack has not been visited:
             if room["room_id"] not in visited:
                 # we add it to the list of visited rooms
-                visited.append(room["room_id"])
-
+                visited[room["room_id"]] = room
+            print(visited)
             # print(f"We are in room {room.id}")
             # print(f"We have visited these rooms: {visited}")
 
@@ -153,8 +154,22 @@ def traverseMaze(initialRoom):
                 # print(g.vertices[room.id], "<< next move")
                 # we add that room to the Stack for rooms
                 s.push((room, next_move, current_room))
+                # we cache the graph so far into the graph.txt file
                 graph_so_far = json.dumps(g.vertices)
-                f.write(graph_so_far)
+                # we open the file
+                graph_file = open("graph.txt", "w")
+                # write graph so far in the file
+                graph_file.write(graph_so_far)
+                # close graph file
+                graph_file.close()
+                # we cache the visited dict with every room information so far into the txt file
+                visited_so_far = json.dumps(visited)
+                # we open the file
+                visited_file = open("visited.txt", "w")
+                # write visited so far in the file
+                visited_file.write(visited_so_far)
+                # close visited file
+                visited_file.close()
                 # print(f"####Pushing####\n Room: {room}\n, Next move: {next_move}\n, Current_room: {current_room}\n\n")
 
             # otherwise:
@@ -180,10 +195,25 @@ def traverseMaze(initialRoom):
                 traversal_path.append(opp_dir)
                 # we add the room in the Stack of rooms
                 s.push((room, opp_dir, current_room))
+                # we cache the graph so far into the graph.txt file
+                graph_so_far = json.dumps(g.vertices)
+                # we open the file
+                graph_file = open("graph.txt", "w")
+                # write graph so far in the file
+                graph_file.write(graph_so_far)
+                # close graph file
+                graph_file.close()
+                # we cache the visited dict with every room information so far into the txt file
+                visited_so_far = json.dumps(visited)
+                # we open the file
+                visited_file = open("visited.txt", "w")
+                # write visited so far in the file
+                visited_file.write(visited_so_far)
+                # close visited file
+                visited_file.close()
         # otherwise
         else:
-            # exit the function and close the file
-            f.close()
+            # exit the function
             break
 
 
