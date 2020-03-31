@@ -14,6 +14,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# file to cache Graph
+f = open("graph.txt", "r+")
+
 api_token = os.getenv("API_TOKEN")
 init_api_url = os.getenv("INIT_API_URL")
 move_api_url = os.getenv("MOVE_API_URL")
@@ -150,7 +153,8 @@ def traverseMaze(initialRoom):
                 # print(g.vertices[room.id], "<< next move")
                 # we add that room to the Stack for rooms
                 s.push((room, next_move, current_room))
-
+                graph_so_far = json.dumps(g.vertices)
+                f.write(graph_so_far)
                 # print(f"####Pushing####\n Room: {room}\n, Next move: {next_move}\n, Current_room: {current_room}\n\n")
 
             # otherwise:
@@ -178,7 +182,8 @@ def traverseMaze(initialRoom):
                 s.push((room, opp_dir, current_room))
         # otherwise
         else:
-            # exit the function
+            # exit the function and close the file
+            f.close()
             break
 
 
