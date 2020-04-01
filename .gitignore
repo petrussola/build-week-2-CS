@@ -1,5 +1,9 @@
 graph.txt
 visited.txt
+last_room.txt
+last_direction.txt
+test.py
+backup/
 test.py
 # Byte-compiled / optimized / DLL files
 __pycache__/

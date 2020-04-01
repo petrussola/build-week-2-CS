@@ -36,25 +36,26 @@ directions = {
 
 
 def api_call_get(endpoint):
-    print("Calling GET")
+    # print("Calling GET\n")
     response = requests.get(endpoint, headers=headers)
     if response.status_code == 200:
-        print("Returning GET")
+        # print("Returning GET\n")
         return json.loads(response.content.decode('utf-8'))
     else:
-        print("Too bad")
+        print("Too bad\n")
         return None
 
 
 # POST API CALL HELPER FUNCTION
 def api_call_post(endpoint, payload):
-    print("Calling POST")
+    # print("Calling POST\n")
     response = requests.post(endpoint, headers=headers, json=payload)
     if response.status_code == 200:
-        print("Returning POST")
+        # print("Returning POST\n")
         return json.loads(response.content.decode('utf-8'))
     else:
-        print("Too bad")
+        print("Too bad\n")
+        print(json.loads(response.content.decode('utf-8')))
         return None
 
 
@@ -64,7 +65,7 @@ initialRoom = api_call_get(init_api_url)
 # TRAVERSE GRAPH
 
 
-def traverseMaze(initialRoom):
+def traverseMaze(initialRoom, graph_file, visited_file):
     # helper dictionary with the opposite directions when going back
     directions_opp = {
         'n': 's',
@@ -74,33 +75,72 @@ def traverseMaze(initialRoom):
     }
     # We initiate a Graph
     g = Graph()
+    # we load cache of data from text file
+    try:
+        # in case there is data
+        g.vertices = json.load(graph_file)
+    except:
+        # in case text file is empty
+        g.vertices = {}
     # We initiate a Stack for rooms
     s = Stack()
     # We initiate a Stack for directions
     d = Stack()
     # We create a visited List
-    visited = {}
+    try:
+        # in case there is data
+        visited = json.load(visited_file)
+    except:
+        # in case text file is empty
+        visited = {}
     # Push initial room to the stack
-    s.push((None, None, initialRoom))
-    # while the stack has something in it
+    try:
+        # we handle last room file
+        lastRoomFile = open("last_room.txt", "r")
+        lastRoomVisited = json.load(lastRoomFile)
+
+        # we handle last direction file
+        lastDirectionFile = open("last_direction.txt", "r")
+        lastDirectionTaken = json.load(lastDirectionFile)
+        oppositeDirection = directions_opp[lastDirectionTaken]
+
+        previousRoomId = g.vertices[str(lastRoomVisited["room_id"])][oppositeDirection]
+        previousRoom = visited[str(previousRoomId)]
+
+        s.push((previousRoom, lastDirectionTaken, lastRoomVisited))
+        # we close the files
+        lastRoomFile.close()
+        lastDirectionFile.close()
+    except:
+        print("Didn't have data from last_room.txt file")
+        s.push((None, None, initialRoom))
+    # we keep track of the latest cooldown period. We initialise the variable to 15 seconds to keep track of it.
+    cooldown = int(os.getenv("DEFAULT_COOLDOWN"), 10)
     now = datetime.now()
+    # while the stack has something in it
     while s.size() > 0:
+        print(f"The stack is {len(s.stack)} long: \n\n")
         # if visited list is less than the number of rooms (we set the number of rooms in the env file)
         if len(visited) < lenght_maze:
             # we pull the room at the head of the stack
             prev_room, inc_dir, room = s.pop()
 
-            # print(f"The previous room is: {prev_room}\n\n")
-            # print(f"The incoming direction is: {inc_dir}\n\n")
-            # print(f"The room is: {room}\n\n")
+            # we record the last room we have been in
+            lastRoomFile = open("last_room.txt", "w")
+            lastRoomVisited = json.dumps(room)
+            lastRoomFile.write(lastRoomVisited)
+            lastRoomFile.close()
+
+            # we record the last direction we have taken
+            lastDirectionFile = open("last_direction.txt", "w")
+            lastDirectionTaken = json.dumps(inc_dir)
+            lastDirectionFile.write(lastDirectionTaken)
+            lastDirectionFile.close()
 
             # if the room that we pull from stack has not been visited:
             if room["room_id"] not in visited:
                 # we add it to the list of visited rooms
                 visited[room["room_id"]] = room
-            print(visited)
-            # print(f"We are in room {room.id}")
-            # print(f"We have visited these rooms: {visited}")
 
             # if it is not in our map (Graph)
             if not room["room_id"] in g.vertices:
@@ -110,8 +150,6 @@ def traverseMaze(initialRoom):
                 exits = room["exits"]
                 for e in exits:
                     g.vertices[room["room_id"]][e] = "?"
-
-            # print(f"The graph so far is: {g.vertices}\n\n")
 
             # if we are not in the initial room (because initial room has inc_dir = None)
             if inc_dir != None:
@@ -128,30 +166,27 @@ def traverseMaze(initialRoom):
                 # we choose one direction at random
                 next_move = random.choice(av_exits)
                 # We need to wait the cooldown period in order to make the next API call.
-                # we check if 15 sec have elapsed
                 then = now
                 now = datetime.now()
                 duration = now - then
                 duration_in_s = duration.total_seconds()
-                cooldown = room["cooldown"]
+                # we check if 15 sec have elapsed
                 if duration_in_s <= cooldown:
                     waiting_time = cooldown - duration_in_s
                     print(f"Oh dear, we have to wait {waiting_time} seconds")
                     time.sleep(waiting_time)
                     print(f"Done with waiting. Let's move on.")
                 # once cooldown has elapsed, we move in that direction calling the api move endpoint
-                current_room = api_call_post(
-                    move_api_url, directions[next_move])
+                current_room = api_call_post(move_api_url, directions[next_move])
                 # we reset the cooldown timer
+                cooldown = current_room["cooldown"]
                 now = datetime.now()
                 # we add the direction to the stack of directions (ideal to go back when readching a dead end)
                 d.push(next_move)
                 # we add direction to traversal path
                 traversal_path.append(next_move)
                 # we connect the next room with the one we come from
-                g.vertices[room["room_id"]
-                           ][next_move] = current_room["room_id"]
-                # print(g.vertices[room.id], "<< next move")
+                g.vertices[room["room_id"]][next_move] = current_room["room_id"]
                 # we add that room to the Stack for rooms
                 s.push((room, next_move, current_room))
                 # we cache the graph so far into the graph.txt file
@@ -170,8 +205,6 @@ def traverseMaze(initialRoom):
                 visited_file.write(visited_so_far)
                 # close visited file
                 visited_file.close()
-                # print(f"####Pushing####\n Room: {room}\n, Next move: {next_move}\n, Current_room: {current_room}\n\n")
-
             # otherwise:
             else:
                 # we pop a direction from the direction Stack
@@ -179,18 +212,20 @@ def traverseMaze(initialRoom):
                 # we move in the opposite direction
                 opp_dir = directions_opp[dir]
                # We need to wait the cooldown period in order to make the next API call.
-                # we check if 15 sec have elapsed
                 then = now
                 now = datetime.now()
                 duration = now - then
                 duration_in_s = duration.total_seconds()
-                cooldown = room["cooldown"]
+                # we check if 15 sec have elapsed
                 if duration_in_s <= cooldown:
                     waiting_time = cooldown - duration_in_s
                     print(f"Oh dear, we have to wait {waiting_time} seconds")
                     time.sleep(waiting_time)
                     print(f"Done with waiting. Let's move on.")
                 current_room = api_call_post(move_api_url, directions[opp_dir])
+                # we reset the cooldown timer
+                cooldown = current_room["cooldown"]
+                now = datetime.now()                                
                 # we add the direction to traversal_path
                 traversal_path.append(opp_dir)
                 # we add the room in the Stack of rooms
@@ -218,4 +253,7 @@ def traverseMaze(initialRoom):
 
 
 traversal_path = []
-traverseMaze(initialRoom)
+graph_file = open("graph.txt", "r")
+visited_file = open("visited.txt", "r")
+
+traverseMaze(initialRoom, graph_file, visited_file)
