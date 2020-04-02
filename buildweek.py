@@ -9,6 +9,7 @@ from datetime import datetime
 from graph import Graph
 from util import Stack, Queue
 from find_treasure_api import findTreasureApi
+from bfs_find_treasure import bfsFindTreasure, convertToSteps
 
 # DEPENDENCIES
 from dotenv import load_dotenv
@@ -279,44 +280,12 @@ startingRoomId = initialRoom["room_id"]
 # we traverse the graph until we find 1000 gold
 
 
-def bfs_find_treasure(graph, visited, currentRoomId, startingDirection):
-    s = Stack()
-    # we push current room and direction we are taking
-    s.push([[currentRoomId, startingDirection]])
-    # we create a way to track room that have been visited
-    looked = set()
-    # while there is something in the Stack
-    while s.size() > 0:
-        # we pop the path
-        path = s.pop()
-        # we extract room ID and the direction that we took
-        roomId, direction = path[-1]
-        # we get the next room id
-        nextRoomId = graph.vertices[str(roomId)][direction]
-        # have we visited the next room?
-        if nextRoomId not in looked:
-            # if we have, check how many items there are
-            numbItems = len(visited[str(nextRoomId)]["items"])
-            # if there are any
-            if numbItems > 0:
-                path.append([nextRoomId, None])
-                # return path
-                return path
-            # otherwise, add the room to the looked list
-            looked.add(roomId)
-            # examine each exit
-            for exit in graph.vertices[str(nextRoomId)]:
-                new_path = list(path)
-                # new_treasure_path = list(path)
-                new_path.append([nextRoomId, exit])
-                # we push new path to the Stack
-                s.push(new_path)
-    return None
-
 nextDirection = random.choice(initialRoom["exits"])
 
-path = bfs_find_treasure(g, visited, initialRoom["room_id"], nextDirection)
+path = bfsFindTreasure(g, visited, initialRoom["room_id"])
 print(f"#### PATH: ####\n\n {path}")
+pathDirections = convertToSteps(path, g)
+print(f"#### PATH_DIRECTIONS: ####\n\n {pathDirections}")
 
 now = datetime.now()
 cooldown = initialRoom["cooldown"]
