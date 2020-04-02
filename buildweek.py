@@ -8,6 +8,7 @@ from datetime import datetime
 # HELPERS
 from graph import Graph
 from util import Stack, Queue
+from find_treasure_api import findTreasureApi
 
 # DEPENDENCIES
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ api_token = os.getenv("API_TOKEN")
 init_api_url = os.getenv("INIT_API_URL")
 move_api_url = os.getenv("MOVE_API_URL")
 lenght_maze = int(os.getenv("NUM_ROOMS"), 10)
+base_api_url = os.getenv("BASE_API_URL")
 
 headers = {'Content-Type': 'application/json', 'Authorization': api_token}
 
@@ -104,7 +106,8 @@ def traverseMaze(initialRoom, graph_file, visited_file):
         lastDirectionTaken = json.load(lastDirectionFile)
         oppositeDirection = directions_opp[lastDirectionTaken]
 
-        previousRoomId = g.vertices[str(lastRoomVisited["room_id"])][oppositeDirection]
+        previousRoomId = g.vertices[str(
+            lastRoomVisited["room_id"])][oppositeDirection]
         previousRoom = visited[str(previousRoomId)]
 
         s.push((previousRoom, lastDirectionTaken, lastRoomVisited))
@@ -177,7 +180,8 @@ def traverseMaze(initialRoom, graph_file, visited_file):
                     time.sleep(waiting_time)
                     print(f"Done with waiting. Let's move on.")
                 # once cooldown has elapsed, we move in that direction calling the api move endpoint
-                current_room = api_call_post(move_api_url, directions[next_move])
+                current_room = api_call_post(
+                    move_api_url, directions[next_move])
                 # we reset the cooldown timer
                 cooldown = current_room["cooldown"]
                 now = datetime.now()
@@ -186,7 +190,8 @@ def traverseMaze(initialRoom, graph_file, visited_file):
                 # we add direction to traversal path
                 traversal_path.append(next_move)
                 # we connect the next room with the one we come from
-                g.vertices[room["room_id"]][next_move] = current_room["room_id"]
+                g.vertices[room["room_id"]
+                           ][next_move] = current_room["room_id"]
                 # we add that room to the Stack for rooms
                 s.push((room, next_move, current_room))
                 # we cache the graph so far into the graph.txt file
@@ -225,7 +230,7 @@ def traverseMaze(initialRoom, graph_file, visited_file):
                 current_room = api_call_post(move_api_url, directions[opp_dir])
                 # we reset the cooldown timer
                 cooldown = current_room["cooldown"]
-                now = datetime.now()                                
+                now = datetime.now()
                 # we add the direction to traversal_path
                 traversal_path.append(opp_dir)
                 # we add the room in the Stack of rooms
@@ -256,4 +261,63 @@ traversal_path = []
 graph_file = open("graph.txt", "r")
 visited_file = open("visited.txt", "r")
 
-traverseMaze(initialRoom, graph_file, visited_file)
+# traverseMaze(initialRoom, graph_file, visited_file)
+
+# SEARCH FOR TREASURE
+
+# we need to import the map we built previously after traversing the maze
+# we initialize a Graph
+g = Graph()
+# we back up it up with the Graph of the maze
+g.vertices = json.load(graph_file)
+# we initialize the inventory of rooms
+visited = {}
+# we back it up with the inventory of rooms done while traversing the graph
+visited = json.load(visited_file)
+# we get the id of the initial room
+startingRoomId = initialRoom["room_id"]
+# we traverse the graph until we find 1000 gold
+
+
+def bfs_find_treasure(graph, visited, currentRoomId, startingDirection):
+    s = Stack()
+    # we push current room and direction we are taking
+    s.push([[currentRoomId, startingDirection]])
+    # we create a way to track room that have been visited
+    looked = set()
+    # while there is something in the Stack
+    while s.size() > 0:
+        # we pop the path
+        path = s.pop()
+        # we extract room ID and the direction that we took
+        roomId, direction = path[-1]
+        # we get the next room id
+        nextRoomId = graph.vertices[str(roomId)][direction]
+        # have we visited the next room?
+        if nextRoomId not in looked:
+            # if we have, check how many items there are
+            numbItems = len(visited[str(nextRoomId)]["items"])
+            # if there are any
+            if numbItems > 0:
+                path.append([nextRoomId, None])
+                # return path
+                return path
+            # otherwise, add the room to the looked list
+            looked.add(roomId)
+            # examine each exit
+            for exit in graph.vertices[str(nextRoomId)]:
+                new_path = list(path)
+                # new_treasure_path = list(path)
+                new_path.append([nextRoomId, exit])
+                # we push new path to the Stack
+                s.push(new_path)
+    return None
+
+nextDirection = random.choice(initialRoom["exits"])
+
+path = bfs_find_treasure(g, visited, initialRoom["room_id"], nextDirection)
+print(f"#### PATH: ####\n\n {path}")
+
+now = datetime.now()
+cooldown = initialRoom["cooldown"]
+# findTreasureApi(path, listTreasures, now, cooldown)
