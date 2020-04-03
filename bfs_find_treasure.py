@@ -1,7 +1,8 @@
 from util import Stack
 
 
-def bfsFindTreasure(graph, visited, currentRoomId):
+def bfsFindTreasure(graph, visited, currentRoomId, listTreasuresTaken):
+    print(f"Start looking for a path to next treasure.\n Starting at room{currentRoomId}\n")
     s = Stack()
     # we push current room and direction we are taking
     s.push([currentRoomId])
@@ -18,7 +19,7 @@ def bfsFindTreasure(graph, visited, currentRoomId):
             # if we have, check how many items there are
             numbItems = len(visited[str(roomId)]["items"])
             # if there are any
-            if numbItems > 0:
+            if numbItems > 0 and roomId not in listTreasuresTaken:
                 # return path
                 return path
             # otherwise, add the room to the looked list

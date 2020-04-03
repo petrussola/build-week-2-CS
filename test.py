@@ -1,12 +1,11 @@
-f = open("graph.txt", "r+")
+from api_call import api_call_post
+from datetime import datetime
 
-s = "lol12"
-f.write(s)
-s = "lol122"
-f.write(s)
-f.close()
+payload = {}
 
-# f = open("graph.txt", "r+")
-# data = f.read()
-# print(data)
-# f.close()
+now = datetime.now()
+
+cooldown = 2
+
+status = api_call_post("status/", now, cooldown, payload)
+print(status)

@@ -8,8 +8,10 @@ from datetime import datetime
 # HELPERS
 from graph import Graph
 from util import Stack, Queue
-from find_treasure_api import findTreasureApi
+from find_treasure_api import findSomethingApi, collectTreasure
 from bfs_find_treasure import bfsFindTreasure, convertToSteps
+from bfs_find_room_name import findRoom
+from api_call import api_call_post, api_call_get_timer
 
 # DEPENDENCIES
 from dotenv import load_dotenv
@@ -50,7 +52,7 @@ def api_call_get(endpoint):
 
 
 # POST API CALL HELPER FUNCTION
-def api_call_post(endpoint, payload):
+def api_call_post_initial(endpoint, payload):
     # print("Calling POST\n")
     response = requests.post(endpoint, headers=headers, json=payload)
     if response.status_code == 200:
@@ -181,7 +183,7 @@ def traverseMaze(initialRoom, graph_file, visited_file):
                     time.sleep(waiting_time)
                     print(f"Done with waiting. Let's move on.")
                 # once cooldown has elapsed, we move in that direction calling the api move endpoint
-                current_room = api_call_post(
+                current_room = api_call_post_initial(
                     move_api_url, directions[next_move])
                 # we reset the cooldown timer
                 cooldown = current_room["cooldown"]
@@ -228,7 +230,8 @@ def traverseMaze(initialRoom, graph_file, visited_file):
                     print(f"Oh dear, we have to wait {waiting_time} seconds")
                     time.sleep(waiting_time)
                     print(f"Done with waiting. Let's move on.")
-                current_room = api_call_post(move_api_url, directions[opp_dir])
+                current_room = api_call_post_initial(
+                    move_api_url, directions[opp_dir])
                 # we reset the cooldown timer
                 cooldown = current_room["cooldown"]
                 now = datetime.now()
@@ -266,27 +269,261 @@ visited_file = open("visited.txt", "r")
 
 # SEARCH FOR TREASURE
 
-# we need to import the map we built previously after traversing the maze
-# we initialize a Graph
+# import the map we built previously after traversing the maze
+# initialize a Graph
 g = Graph()
-# we back up it up with the Graph of the maze
+# back up it up with the Graph of the maze
 g.vertices = json.load(graph_file)
-# we initialize the inventory of rooms
+# initialize the inventory of rooms
 visited = {}
-# we back it up with the inventory of rooms done while traversing the graph
+# back it up with the inventory of rooms done while traversing the graph
 visited = json.load(visited_file)
-# we get the id of the initial room
+# get the id of the initial room
 startingRoomId = initialRoom["room_id"]
-# we traverse the graph until we find 1000 gold
-
-
+###### traverse the graph until we find 1000 gold #####
+# get an initial random direction to get started
 nextDirection = random.choice(initialRoom["exits"])
-
-path = bfsFindTreasure(g, visited, initialRoom["room_id"])
-print(f"#### PATH: ####\n\n {path}")
-pathDirections = convertToSteps(path, g)
-print(f"#### PATH_DIRECTIONS: ####\n\n {pathDirections}")
-
+# initialize list to keep track of rooms where we found treasure, so local map is synched with server map
+roomsTreasure = list()
 now = datetime.now()
 cooldown = initialRoom["cooldown"]
-# findTreasureApi(path, listTreasures, now, cooldown)
+# check initial status of player
+status, now, cooldown = api_call_post("status/", now, cooldown, {})
+# now = datetime.now()
+# cooldown = status["cooldown"]
+
+######################################################
+##### FIND TREASURE, SHOP, SELL AND COLLECT GOLD #####
+######################################################
+
+
+# while status["gold"] < 1000:
+#     print(f"==============\n STARTING NEW TREASURE HUNT\n============== \n")
+#     ##############
+#     ## TREASURE ##
+#     ##############
+#     # find the path of rooms to the nearest treasure
+#     path = bfsFindTreasure(g, visited, initialRoom["room_id"], roomsTreasure)
+#     # add last room in the path, the one with the treasure, to the roomsTreasure list
+#     roomsTreasure.append(path[-1])
+#     print(f"#### PATH TO TREASURE: ####\n {path}")
+#     # convert the path of rooms to directions
+#     pathDirections = convertToSteps(path, g)
+#     print(f"#### DIRECTIONS TO TREASURE: ####\n {pathDirections}")
+#     # convert the path of rooms and directions into real movements inside the maze. Returns the room containing treasure.
+#     currentRoom = findSomethingApi(path, pathDirections, now, cooldown)
+#     # collect all treasures in the room
+#     if currentRoom is not None:
+#         print(f"Current room is NOT None")
+#         treasuresCollected = collectTreasure(currentRoom)
+#         now = datetime.now()
+#         cooldown = currentRoom["cooldown"]
+#         print(f"!!!!Cooldown is:!!!!\n {cooldown}\n")
+#     else:
+#         print(f"Current room is None")
+#         initRoom = api_call_get_timer("init/", now, cooldown)
+#         treasuresCollected = collectTreasure(initRoom)
+#         now = datetime.now()
+#         cooldown = initRoom["cooldown"]
+#         print(f"----Cooldown is:----\n {cooldown}\n")
+#     print(
+#     f"####We have collected these treasures: ####\n {treasuresCollected}")
+#     status, now, cooldown = api_call_post("status/", now, cooldown, {})
+#     print(f"$$$$Status: $$$$ {status}")
+#     # now = datetime.now()
+#     # cooldown = status["cooldown"]
+#     itemsInventory = status["inventory"]
+#     print(f"&&& We have collected these treasures: &&&\n {itemsInventory}\n")
+
+#     if len(treasuresCollected) > 0:
+#         ##########
+#         ## SHOP ##
+#         ##########
+#         print(f"==============\n STARTING SHOP HUNT\n============== \n")
+#         # find path to the shop
+#         pathShop = findRoom(g, visited, currentRoom, "Shop")
+#         #######
+#         ####### ^^^^^ for debugging, change initialRoom with currentRoom and viceversa
+#         #######
+#         print(f"#### PATH TO SHOP: ####\n\n {pathShop}")
+#         # convert shop path into steps
+#         pathDirectionsShop = convertToSteps(pathShop, g)
+#         print(f"#### DIRECTIONS TO SHOP: ####\n\n {pathDirectionsShop}")
+#         # move in the server map
+#         shop = findSomethingApi(pathShop, pathDirectionsShop, now, cooldown)
+#         now = datetime.now()
+#         cooldown = shop["cooldown"]
+
+#         ############################
+#         ## CHECK NUMBER TREASURES ##
+#         ############################
+
+#         print(f"==============\n CHECHING STATUS\n============== \n")
+#         status, now, cooldown = api_call_post("status/", now, cooldown, {})
+#         treasures = status["inventory"]
+#         gold = status["gold"]
+#         print(f"++++You have now these treasures:++++\n {treasures}\n")
+#         print(f"****You have this gold:****\n {gold}\n")
+#         # now = datetime.now()
+#         # cooldown = status["cooldown"]
+
+#         #######################
+#         ## SALE OF TREASURES ##
+#         #######################
+
+#         print(f"==============\n START SALE OF TREASURES\n============== \n")
+#         inventory = status["inventory"]
+#         print(f"You have this much gold in your pocket:\n {inventory}")
+#         for el in status["inventory"]:
+#             try:
+#                 payload = {
+#                     "name": el
+#                 }
+#                 print(f"Payload to sell, starting: {payload}\n")
+#                 answer, now, cooldown = api_call_post('sell/', now, cooldown, payload)
+#                 print(f"Cooldown: {cooldown}")
+#                 print(f"Now: {now}")
+#                 message = answer["messages"]
+#                 print(f"Answer: {message}")
+#                 print(f">>>The shop keeper tells you:\n {message}\n <<<")
+#                 print(f"Sale finished\n")
+#                 # now = datetime.now()
+#                 # cooldown = answer["cooldown"]
+#                 print(f"==============\n SALE COMPLETED> STARTING CONFIRMATION\n============== \n")
+#                 if len(answer["messages"]) > 0:
+#                     payload = {
+#                         "name": el,
+#                         "confirm": "yes"
+#                     }
+#                     try:
+#                         print(f"Payload to confirm sale, starting: {payload}\n")
+#                         answer, now, cooldown = api_call_post("sell/", now, cooldown, payload)
+#                         print(f"Confirm sale finished\n")
+#                     except:
+#                         print(">>>> There was a problem confirming the sale. <<<<\n\n")
+#             except:
+#                 print(">>>> There was a problem selling the treasure. <<<<\n\n")
+#             status, now, cooldown = api_call_post("status/", now, cooldown, {})
+#             treasures = status["inventory"]
+#             gold = status["gold"]
+#             print(f"++++You have now these treasures:++++\n {treasures}\n")
+#             print(f"****You have this gold:****\n {gold}\n")
+#             # now = datetime.now()
+#             # cooldown = shop["cooldown"]
+#             print(f"==============\n SALE CONFIRMED\n============== \n")
+#     else:
+#         print(f"Hmmm, there were no treasures after all, continue hunting..\n")
+#         print(f"==============\n GETTING NEW INITIAL ROOM\n============== \n")
+#         initialRoom = api_call_get_timer("init/", now, cooldown)
+#         now = datetime.now()
+#         cooldown = initialRoom["cooldown"]
+#         print(f"££££ Initial room is now: ££££\n {initialRoom}\n")
+
+#############################################################
+##### END OF FIND TREASURE, SHOP, SELL AND COLLECT GOLD #####
+#############################################################
+
+#############################################################
+##### START OF FINDING NAME ROOM #####
+#############################################################
+# # get the current room
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+
+# # find path to the shop
+# pathName = findRoom(g, visited, currentRoom, "Pirate Ry's")
+# #######
+# # ^^^^^ for debugging, change initialRoom with currentRoom and viceversa
+# #######
+# print(f"#### PATH TO NAME CHANGER: ####\n\n {pathName}")
+# # convert shop path into steps
+# pathDirectionsName = convertToSteps(pathName, g)
+# print(f"#### DIRECTIONS TO NAME CHANGER: ####\n\n {pathDirectionsName}")
+# # move in the server map
+# name = findSomethingApi(pathName, pathDirectionsName, now, cooldown)
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+# print(f"Here we are, in the name changer room:\n {currentRoom}")
+# # change name
+# response = api_call_post('change_name/', now, cooldown,
+#                          {"name": "Pere Sola Claver", 'confirm': 'aye'})
+# print(f"We get this as a response:\n {response}\n")
+#############################################################
+##### END OF FINDING NAME ROOM AND CHANGING ROOM      #####
+#############################################################
+
+#############################################################
+##### START OF FINDING SHRINE AND PRAYING      #####
+#############################################################
+# # get the current room
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+
+# # find path to the shop
+# pathShrine = findRoom(g, visited, currentRoom, "The Peak of Mt. Holloway")
+# #######
+# # ^^^^^ for debugging, change initialRoom with currentRoom and viceversa
+# #######
+# print(f"#### PATH TO SHRINE: ####\n\n {pathShrine}")
+# # convert shop path into steps
+# pathDirectionsShrine = convertToSteps(pathShrine, g)
+# print(f"#### DIRECTIONS TO SHRINE: ####\n\n {pathDirectionsShrine}")
+# # move in the server map
+# name = findSomethingApi(pathShrine, pathDirectionsShrine, now, cooldown)
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+# print(f"Here we are, in the SHRINE:\n {currentRoom}")
+# # pray
+# response = api_call_post('pray/', now, cooldown,
+#                          {})
+# print(f"We get this as a response after praying:\n {response}\n")
+
+#############################################################
+##### END OF FINDING SHRINE AND PRAYING      #####
+#############################################################
+
+#############################################################
+##### START OF FINDING WISHING WELL      #####
+#############################################################
+# # get the current room
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+
+# # find path to the shop
+# pathWell = findRoom(g, visited, currentRoom, "Wishing Well")
+# #######
+# # ^^^^^ for debugging, change initialRoom with currentRoom and viceversa
+# #######
+# print(f"#### PATH TO SHRINE: ####\n\n {pathWell}")
+# # convert shop path into steps
+# pathDirectionsWell = convertToSteps(pathWell, g)
+# print(f"#### DIRECTIONS TO WELL: ####\n\n {pathDirectionsWell}")
+# # move in the server map
+# well, now, cooldown = findSomethingApi(pathWell, pathDirectionsWell, now, cooldown)
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+# print(f"Here we are, in the WELL:\n {currentRoom}")
+# # # pray
+# # response = api_call_post('pray/', now, cooldown,
+# #                          {})
+# # print(f"We get this as a response after praying:\n {response}\n")
+#############################################################
+##### END OF FINDING WISHING WELL      #####
+#############################################################
+
+#############################################################
+##### START OF EXAMINING WISHING WELL                   #####
+#############################################################
+# get the current room
+currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+
+# examine well
+response, now, cooldown = api_call_post('examine/', now, cooldown,
+                         {"name": "well"})
+print(f"We get this as a response after examining well:\n {response}\n")
+code = response["description"].split("...")[1]
+binCode = code.split("\n")[2:]
+f = open("machine_code.txt", "a+")
+for c in binCode:
+    print(c, "<<<<<<<<<<<<<<<<<")
+    f.write(f"{c}\n")
+f.close()
+# print(code)
+
+#############################################################
+##### END OF EXAMINING WISHING WELL                     #####
+#############################################################
