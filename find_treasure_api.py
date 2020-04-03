@@ -28,7 +28,7 @@ def findSomethingApi(listRooms, listDirections, now, cooldown):
             print(f"++++We are now in room {current_room} ++++\n\n")
         roomId = current_room["room_id"]
         print(f"#### End of the trip, we are now in room {roomId} ####\n\n")
-        return current_room
+        return [current_room, now, cooldown]
     else:
         return None
 

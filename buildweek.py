@@ -4,14 +4,16 @@ import requests
 import random
 import time
 from datetime import datetime
+from cpu import *
 
 # HELPERS
 from graph import Graph
 from util import Stack, Queue
 from find_treasure_api import findSomethingApi, collectTreasure
 from bfs_find_treasure import bfsFindTreasure, convertToSteps
-from bfs_find_room_name import findRoom
-from api_call import api_call_post, api_call_get_timer
+from bfs_find_room_name import findRoom, findRoomId
+from api_call import api_call_post, api_call_get_timer, api_call_get_timer_bc, api_call_post_bc
+from miner import proof_of_work, valid_proof
 
 # DEPENDENCIES
 from dotenv import load_dotenv
@@ -506,24 +508,73 @@ status, now, cooldown = api_call_post("status/", now, cooldown, {})
 #############################################################
 
 #############################################################
-##### START OF EXAMINING WISHING WELL                   #####
+## START OF EXAMINING WISHING WELL AND WORKING WITH MACHINE CODE ##
 #############################################################
-# get the current room
-currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+# # get the current room
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
 
-# examine well
-response, now, cooldown = api_call_post('examine/', now, cooldown,
-                         {"name": "well"})
-print(f"We get this as a response after examining well:\n {response}\n")
-code = response["description"].split("...")[1]
-binCode = code.split("\n")[2:]
-f = open("machine_code.txt", "a+")
-for c in binCode:
-    print(c, "<<<<<<<<<<<<<<<<<")
-    f.write(f"{c}\n")
-f.close()
-# print(code)
+# # examine well
+# response, now, cooldown = api_call_post('examine/', now, cooldown,
+#                          {"name": "well"})
+# print(f"We get this as a response after examining well:\n {response}\n")
+# code = response["description"].split("...")[1]
+# binCode = code.split("\n")[2:]
+# # copy machine code into file
+# f = open("machine_code.txt", "a+")
+# for c in binCode:
+#     print(c, "<<<<<<<<<<<<<<<<<")
+#     f.write(f"{c}\n")
+# f.close()
+# run machine code
+# cpu = CPU()
+# cpu.load()
+# cpu.run()
 
 #############################################################
-##### END OF EXAMINING WISHING WELL                     #####
+## END OF EXAMINING WISHING WELL AND WORKING WITH MACHINE CODE ##
+#############################################################
+
+#############################################################
+## START OF FINDING ROOM 446 ##
+#############################################################
+# # get the current room
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+
+# # find path to the shop
+# pathMine = findRoomId(g, visited, currentRoom, 446)
+# #######
+# # ^^^^^ for debugging, change initialRoom with currentRoom and viceversa
+# #######
+# print(f"#### PATH TO MINE: ####\n\n {pathMine}")
+# # convert shop path into steps
+# pathDirectionsMine = convertToSteps(pathMine, g)
+# print(f"#### DIRECTIONS TO MINE: ####\n\n {pathDirectionsMine}")
+# # move in the server map
+# mine, now, cooldown = findSomethingApi(pathMine, pathDirectionsMine, now, cooldown)
+# currentRoom, now, cooldown = api_call_get_timer("init/", now, cooldown)
+# print(f"Here we are, in the MINE:\n {currentRoom}")
+
+#############################################################
+## END OF FINDING ROOM 446 ##
+#############################################################
+#############################################################
+## START OF GETTING PROOF AND MINING A COIN ##
+#############################################################
+# get proof
+response, now, cooldown = api_call_get_timer_bc('last_proof/', now, cooldown)
+print(f"We get this as a response after requesting proof:\n {response}\n")
+proof = response["proof"]
+difficulty = response["difficulty"]
+coins_mined = 0
+while True:
+    new_proof = proof_of_work(proof)
+    print(f"###new proof is {new_proof}###\n")
+    r = api_call_post_bc("mine/", now, cooldown, {"proof": new_proof})
+    message = r["message"]
+    print(f"{r}. Congrats and go have a rest now! :)")
+    break
+
+
+#############################################################
+## END OF MINING A COIN ##
 #############################################################
